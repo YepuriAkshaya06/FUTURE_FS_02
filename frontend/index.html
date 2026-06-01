@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini CRM | Advanced Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f5f5f5; }
+        .dashboard-bg { background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%); min-height: 100vh; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s; border: 1px solid rgba(234,179,8,0.2); }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .kanban-column { background: #f8fafc; border-radius: 12px; min-height: 400px; }
+        .lead-card { cursor: pointer; transition: all 0.2s; background: white; border-left: 3px solid #eab308; }
+        .lead-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .glass-header { background: rgba(255,255,255,0.96); backdrop-filter: blur(8px); border-bottom: 2px solid #eab308; }
+        .stage-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .drag-over { background: #fef3c7; border: 2px dashed #eab308; }
+        .chart-container { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .small-chart { height: 260px !important; width: 100% !important; }
+        .smaller-chart-wrapper { display: flex; justify-content: center; align-items: center; }
+        .smaller-chart { width: 60% !important; margin: 0 auto !important; }
+        .metric-card { background: linear-gradient(135deg, #fff 0%, #f8fafc 100%); border-radius: 16px; padding: 16px; border: 1px solid #e2e8f0; transition: all 0.2s; }
+        .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .pipeline-stage-card { background: white; border-radius: 16px; padding: 16px; border-left: 4px solid; transition: all 0.2s; }
+        .pipeline-stage-card:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .funnel-step { margin-bottom: 12px; cursor: pointer; transition: transform 0.2s; }
+        .funnel-step:hover { transform: translateX(5px); }
+        .funnel-bar { transition: all 0.3s; }
+        .funnel-bar:hover { filter: brightness(0.98); }
+        .edit-btn { opacity: 0.6; transition: opacity 0.2s; }
+        .edit-btn:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+    // ============ PIPELINE STAGES ============
+    const PIPELINE_STAGES = [
+        { id: 'new', name: 'New Lead', icon: 'fa-star', color: '#fbbf24', bg: 'bg-yellow-50', border: 'border-yellow-400' },
+        { id: 'contacted', name: 'Contacted', icon: 'fa-phone', color: '#60a5fa', bg: 'bg-blue-50', border: 'border-blue-400' },
+        { id: 'qualified', name: 'Qualified', icon: 'fa-check-circle', color: '#a78bfa', bg: 'bg-purple-50', border: 'border-purple-400' },
+        { id: 'proposal', name: 'Proposal', icon: 'fa-file-alt', color: '#818cf8', bg: 'bg-indigo-50', border: 'border-indigo-400' },
+        { id: 'negotiation', name: 'Negotiation', icon: 'fa-handshake', color: '#fb923c', bg: 'bg-orange-50', border: 'border-orange-400' },
+        { id: 'won', name: 'Won', icon: 'fa-trophy', color: '#4ade80', bg: 'bg-green-50', border: 'border-green-400' },
+        { id: 'lost', name: 'Lost', icon: 'fa-times-circle', color: '#f87171', bg: 'bg-red-50', border: 'border-red-400' }
+    ];
+
+    // ============ BACKEND API ============
+    const API_URL = 'http://localhost:5000/api';
+    
+    const api = {
+        async login(email, password) {
+            const response = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            if (data.success) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+            }
+            return data;
+        },
+        
+        async getLeads() {
+            const token = localStorage.getItem('token');
+            if (!token) return [];
+            const response = await fetch(`${API_URL}/leads`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            return data.success ? data.data : [];
+        },
+        
+        async createLead(leadData) {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/leads`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(leadData)
+            });
+            return await response.json();
+        },
+        
+        async updateLead(leadId, leadData) {
+            const token = localStorage.getItem('token');
+            console.log('🔵 API - Updating lead ID:', leadId);
+            console.log('🔵 API - Data:', leadData);
+            const response = await fetch(`${API_URL}/leads/${leadId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(leadData)
+            });
+            const result = await response.json();
+            console.log('🔵 API - Response:', result);
+            return result;
+        },
+        
+        async updateLeadStatus(leadId, status) {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/leads/${leadId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+            return await response.json();
+        },
+        
+        async addNote(leadId, note) {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/leads/${leadId}/notes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ note })
+            });
+            return await response.json();
+        },
+        
+        async deleteLead(leadId) {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/leads/${leadId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            return await response.json();
+        },
+        
+        logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        }
+    };
+    
+    // Auth Context
+    const AuthContext = React.createContext(null);
+    const useAuth = () => React.useContext(AuthContext);
+    
+    const AuthProvider = ({ children }) => {
+        const [user, setUser] = React.useState(null);
+        const [loading, setLoading] = React.useState(true);
+        
+        const login = async (email, password) => {
+            const result = await api.login(email, password);
+            if (result.success) {
+                setUser(result.user);
+                return true;
+            }
+            return false;
+        };
+        
+        const logout = () => {
+            api.logout();
+            setUser(null);
+        };
+        
+        React.useEffect(() => {
+            const token = localStorage.getItem('token');
+            const userData = localStorage.getItem('user');
+            if (token && userData) {
+                setUser(JSON.parse(userData));
+            }
+            setLoading(false);
+        }, []);
+        
+        if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div></div>;
+        
+        return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+    };
+    
+    // Login Page
+    const LoginPage = () => {
+        const [email, setEmail] = React.useState("admin@crm.com");
+        const [password, setPassword] = React.useState("");
+        const [error, setError] = React.useState("");
+        const [loading, setLoading] = React.useState(false);
+        const { login } = useAuth();
+        
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            const success = await login(email, password);
+            if (!success) setError("Invalid credentials. Use: admin@crm.com / admin123");
+            setLoading(false);
+        };
+        
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)'}}>
+                <div className="max-w-md w-full">
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl shadow-lg mb-4">
+                            <i className="fas fa-chart-line text-4xl text-white"></i>
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800">Mini CRM</h2>
+                        <p className="text-yellow-700 mt-1">Advanced Analytics Dashboard</p>
+                    </div>
+                    <div className="bg-white rounded-2xl shadow-xl p-8">
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-yellow-500" required /></div>
+                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-yellow-500" required /></div>
+                            {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
+                            <button type="submit" disabled={loading} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2">
+                                {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-sign-in-alt"></i>}
+                                {loading ? "Logging in..." : "Access Dashboard"}
+                            </button>
+                        </form>
+                        <div className="mt-6 text-center text-xs text-gray-400">Demo: admin@crm.com / admin123</div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // ============ CHARTS ============
+    
+    const PipelineChart = ({ leads }) => {
+        const chartRef = React.useRef(null);
+        const chartInstance = React.useRef(null);
+        
+        React.useEffect(() => {
+            if (!chartRef.current) return;
+            
+            const stageCounts = PIPELINE_STAGES.map(stage => 
+                leads.filter(l => l.status === stage.id).length
+            );
+            
+            if (chartInstance.current) chartInstance.current.destroy();
+            
+            chartInstance.current = new Chart(chartRef.current, {
+                type: 'bar',
+                data: {
+                    labels: PIPELINE_STAGES.map(s => s.name),
+                    datasets: [{
+                        label: 'Number of Leads',
+                        data: stageCounts,
+                        backgroundColor: PIPELINE_STAGES.map(s => s.color),
+                        borderRadius: 10,
+                        borderWidth: 0,
+                        barPercentage: 0.7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw} leads` } } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { stepSize: 1 } }, x: { grid: { display: false } } }
+                }
+            });
+            
+            return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+        }, [leads]);
+        
+        return <canvas ref={chartRef} className="small-chart"></canvas>;
+    };
+    
+    const RevenueChart = ({ leads }) => {
+        const chartRef = React.useRef(null);
+        const chartInstance = React.useRef(null);
+        
+        React.useEffect(() => {
+            if (!chartRef.current) return;
+            
+            const stageRevenue = PIPELINE_STAGES.map(stage => 
+                leads.filter(l => l.status === stage.id).reduce((sum, l) => sum + (l.dealValue || 0), 0)
+            );
+            
+            if (chartInstance.current) chartInstance.current.destroy();
+            
+            chartInstance.current = new Chart(chartRef.current, {
+                type: 'doughnut',
+                data: {
+                    labels: PIPELINE_STAGES.map(s => s.name),
+                    datasets: [{
+                        data: stageRevenue,
+                        backgroundColor: PIPELINE_STAGES.map(s => s.color),
+                        borderWidth: 0,
+                        hoverOffset: 8,
+                        cutout: '60%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, boxHeight: 10, padding: 10 } }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ₹${ctx.raw.toLocaleString()}` } } }
+                }
+            });
+            
+            return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+        }, [leads]);
+        
+        return <canvas ref={chartRef} className="small-chart"></canvas>;
+    };
+    
+    const TrendChart = ({ leads }) => {
+        const chartRef = React.useRef(null);
+        const chartInstance = React.useRef(null);
+        
+        React.useEffect(() => {
+            if (!chartRef.current) return;
+            
+            const last14Days = [];
+            const dailyCounts = [];
+            
+            for (let i = 13; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                last14Days.push(dateStr);
+                
+                const count = leads.filter(l => {
+                    const leadDate = new Date(l.createdAt);
+                    return leadDate.toLocaleDateString() === date.toLocaleDateString();
+                }).length;
+                dailyCounts.push(count);
+            }
+            
+            if (chartInstance.current) chartInstance.current.destroy();
+            
+            chartInstance.current = new Chart(chartRef.current, {
+                type: 'line',
+                data: {
+                    labels: last14Days,
+                    datasets: [{
+                        label: 'New Leads',
+                        data: dailyCounts,
+                        borderColor: '#eab308',
+                        backgroundColor: 'rgba(234,179,8,0.05)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#eab308',
+                        pointBorderColor: 'white',
+                        pointBorderWidth: 2,
+                        borderWidth: 2.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { stepSize: 1 } }, x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45 } } }
+                }
+            });
+            
+            return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+        }, [leads]);
+        
+        return <canvas ref={chartRef} className="small-chart"></canvas>;
+    };
+    
+    // Improved Visual Conversion Funnel
+    const VisualConversionFunnel = ({ leads }) => {
+        const funnelStages = [
+            { id: 'new', name: 'New Leads', icon: 'fa-star', color: '#fbbf24', bg: 'bg-yellow-100' },
+            { id: 'contacted', name: 'Contacted', icon: 'fa-phone', color: '#60a5fa', bg: 'bg-blue-100' },
+            { id: 'qualified', name: 'Qualified', icon: 'fa-check-circle', color: '#a78bfa', bg: 'bg-purple-100' },
+            { id: 'proposal', name: 'Proposal Sent', icon: 'fa-file-alt', color: '#818cf8', bg: 'bg-indigo-100' },
+            { id: 'negotiation', name: 'Negotiation', icon: 'fa-handshake', color: '#fb923c', bg: 'bg-orange-100' },
+            { id: 'won', name: 'Won', icon: 'fa-trophy', color: '#4ade80', bg: 'bg-green-100' }
+        ];
+        
+        const stageCounts = funnelStages.map(stage => leads.filter(l => l.status === stage.id).length);
+        const totalLeads = leads.filter(l => l.status === 'new').length || 1;
+        const maxCount = Math.max(...stageCounts, 1);
+        
+        return (
+            <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800">📊 Conversion Funnel</h3>
+                <p className="text-sm text-gray-500 mb-4">Shows how leads progress through each stage</p>
+                
+                {funnelStages.map((stage, index) => {
+                    const count = stageCounts[index];
+                    const percentage = ((count / totalLeads) * 100).toFixed(1);
+                    const widthPercent = (count / maxCount) * 100;
+                    const dropOff = index > 0 && stageCounts[index-1] > 0 ? ((stageCounts[index-1] - count) / stageCounts[index-1] * 100).toFixed(1) : 0;
+                    
+                    return (
+                        <div key={stage.id} className="funnel-step">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="w-28 text-sm font-medium text-gray-700">{stage.name}</div>
+                                <div className="flex-1">
+                                    <div 
+                                        className="funnel-bar h-12 rounded-lg flex items-center justify-between px-4 transition-all cursor-pointer"
+                                        style={{ 
+                                            width: `${widthPercent}%`,
+                                            backgroundColor: stage.color + '20',
+                                            borderLeft: `4px solid ${stage.color}`,
+                                            minWidth: '100px'
+                                        }}
+                                    >
+                                        <span className="text-sm font-semibold" style={{ color: stage.color }}>{count} leads</span>
+                                        <span className="text-xs text-gray-500">{percentage}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {index > 0 && dropOff > 0 && (
+                                <div className="ml-32 text-xs text-gray-400 mb-2">
+                                    ↓ {dropOff}% drop from previous stage
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+                
+                <div className="mt-6 pt-4 border-t border-gray-200 grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-green-50 rounded-xl">
+                        <p className="text-2xl font-bold text-green-600">{((stageCounts[5] / totalLeads) * 100).toFixed(1)}%</p>
+                        <p className="text-xs text-gray-600">Overall Conversion Rate</p>
+                    </div>
+                    <div className="text-center p-3 bg-yellow-50 rounded-xl">
+                        <p className="text-2xl font-bold text-yellow-600">{stageCounts[0]}</p>
+                        <p className="text-xs text-gray-600">Total New Leads</p>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // Stats Card
+    const StatCard = ({ title, value, icon, color, subtext }) => (
+        <div className="stat-card p-5">
+            <div className="flex items-center justify-between mb-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+                    <i className={`${icon} text-white text-xl`}></i>
+                </div>
+                <div className="text-right">
+                    <span className="text-2xl font-bold text-gray-800">{value}</span>
+                </div>
+            </div>
+            <p className="text-gray-600 font-medium">{title}</p>
+            {subtext && <p className="text-xs text-gray-400 mt-1">{subtext}</p>}
+        </div>
+    );
+    
+    // Pipeline Stage Card
+    const PipelineStageCard = ({ stage, count, value, totalLeads }) => {
+        const percentage = totalLeads ? ((count / totalLeads) * 100).toFixed(1) : 0;
+        
+        return (
+            <div className={`pipeline-stage-card border-l-4 ${stage.border}`}>
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full ${stage.bg} flex items-center justify-center`}>
+                            <i className={`fas ${stage.icon} text-sm`} style={{ color: stage.color }}></i>
+                        </div>
+                        <span className="font-semibold text-gray-700">{stage.name}</span>
+                    </div>
+                    <span className="text-xl font-bold text-gray-800">{count}</span>
+                </div>
+                {value > 0 && (
+                    <div className="mb-2">
+                        <span className="text-sm font-semibold text-green-600">₹{value.toLocaleString()}</span>
+                    </div>
+                )}
+                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                    <div className="h-1.5 rounded-full" style={{ width: `${percentage}%`, backgroundColor: stage.color }}></div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">{percentage}% of total leads</p>
+            </div>
+        );
+    };
+    
+    // Revenue Metric Card
+    const RevenueMetricCard = ({ title, value, icon, color }) => (
+        <div className="metric-card">
+            <div className="flex items-start justify-between">
+                <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">{title}</p>
+                    <p className="text-2xl font-bold text-gray-800 mt-1">{value}</p>
+                </div>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center`} style={{ backgroundColor: color + '20' }}>
+                    <i className={`${icon} text-lg`} style={{ color: color }}></i>
+                </div>
+            </div>
+        </div>
+    );
+    
+    // FIXED: Add/Edit Lead Modal
+    const LeadFormModal = ({ lead, onClose, onSave, isEditing }) => {
+        const [form, setForm] = React.useState({
+            name: lead?.name || '',
+            email: lead?.email || '',
+            source: lead?.source || 'Website Contact Form',
+            dealValue: lead?.dealValue || '',
+            status: lead?.status || 'new',
+            notes: lead?.notes || ''
+        });
+        const [loading, setLoading] = React.useState(false);
+        
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            // IMPORTANT: Pass the ID correctly - leads use 'id' field from backend
+            const saveData = { ...form, id: lead?.id };
+            console.log('📝 Submitting form with data:', saveData);
+            await onSave(saveData);
+            setLoading(false);
+        };
+        
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">{isEditing ? '✏️ Edit Lead' : '➕ Add New Lead'}</h3>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><i className="fas fa-times text-xl"></i></button>
+                    </div>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Name *</label><input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl" required /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Email *</label><input type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl" required /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Source</label><select value={form.source} onChange={(e) => setForm({...form, source: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl"><option>Website Contact Form</option><option>Landing Page</option><option>Referral</option><option>Social Media</option></select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Deal Value (₹)</label><input type="number" value={form.dealValue} onChange={(e) => setForm({...form, dealValue: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl" placeholder="0" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Pipeline Stage</label><select value={form.status} onChange={(e) => setForm({...form, status: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl">{PIPELINE_STAGES.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Notes</label><textarea rows="3" value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl"></textarea></div>
+                        <button type="submit" disabled={loading} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-xl transition">
+                            {loading ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
+                            {isEditing ? 'Update Lead' : 'Create Lead'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+    
+    // Lead Detail Modal with Edit Button
+    const LeadDetailModal = ({ lead, onClose, onStatusChange, onAddNote, onEdit }) => {
+        const [newNote, setNewNote] = React.useState('');
+        
+        const handleAddNote = () => {
+            if (newNote.trim()) {
+                onAddNote(lead.id, newNote.trim());
+                setNewNote('');
+            }
+        };
+        
+        const stageInfo = PIPELINE_STAGES.find(s => s.id === lead.status) || PIPELINE_STAGES[0];
+        
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold flex items-center gap-2"><i className="fas fa-user-circle text-yellow-500"></i>Lead Details</h3>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><i className="fas fa-times text-xl"></i></button>
+                    </div>
+                    <div className="space-y-3">
+                        <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Name</p><p className="font-medium">{lead.name}</p></div>
+                        <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Email</p><p className="font-medium">{lead.email}</p></div>
+                        <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Source</p><p className="font-medium">{lead.source}</p></div>
+                        {lead.dealValue > 0 && <div className="bg-green-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Deal Value</p><p className="font-medium text-green-600 text-lg">₹{lead.dealValue.toLocaleString()}</p></div>}
+                        <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Pipeline Stage</p><div className="mt-1"><span className={`stage-badge ${stageInfo.bg} text-gray-700`}>{stageInfo.name}</span></div></div>
+                        <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Update Stage</p><select value={lead.status} onChange={(e) => onStatusChange(lead.id, e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg">{PIPELINE_STAGES.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></div>
+                        <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Created</p><p className="font-medium">{new Date(lead.createdAt).toLocaleString()}</p></div>
+                        {lead.convertedAt && <div className="bg-green-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Won Date</p><p className="font-medium">{new Date(lead.convertedAt).toLocaleString()}</p></div>}
+                        <div className="bg-yellow-50 p-3 rounded-xl">
+                            <p className="text-xs text-gray-400 flex items-center gap-1 mb-2"><i className="fas fa-comments text-yellow-500"></i>Notes</p>
+                            <div className="text-sm whitespace-pre-wrap max-h-32 overflow-y-auto mb-3">{lead.notes || "No notes yet."}</div>
+                            <textarea rows="2" value={newNote} onChange={(e) => setNewNote(e.target.value)} className="w-full p-2 border border-gray-200 rounded-lg text-sm" placeholder="Add a follow-up note..."></textarea>
+                            <button onClick={handleAddNote} className="mt-2 text-sm bg-yellow-500 text-white px-3 py-1 rounded-lg hover:bg-yellow-600">Add Note</button>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => { onEdit(lead); onClose(); }} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg transition"><i className="fas fa-edit mr-2"></i>Edit Lead</button>
+                            <button onClick={onClose} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg transition">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // Kanban Column with Edit Button
+    const KanbanColumn = ({ stage, leads, onLeadClick, onDrop, onEditLead }) => {
+        const [isDragOver, setIsDragOver] = React.useState(false);
+        
+        const handleDragOver = (e) => { e.preventDefault(); setIsDragOver(true); };
+        const handleDragLeave = () => setIsDragOver(false);
+        const handleDrop = (e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            const leadId = e.dataTransfer.getData('leadId');
+            onDrop(leadId, stage.id);
+        };
+        
+        const totalValue = leads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
+        
+        return (
+            <div className={`flex-1 min-w-[280px] ${isDragOver ? 'drag-over' : ''}`}>
+                <div className="bg-white rounded-xl shadow-sm border border-yellow-100 overflow-hidden">
+                    <div className={`p-3 ${stage.bg} border-b`}>
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <i className={`fas ${stage.icon}`} style={{ color: stage.color }}></i>
+                                <span className="font-semibold text-gray-700">{stage.name}</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <span className="bg-white px-2 py-1 rounded-full text-xs font-bold text-gray-600">{leads.length}</span>
+                                {totalValue > 0 && <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">₹{(totalValue/1000).toFixed(0)}k</span>}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-3 min-h-[400px] max-h-[500px] overflow-y-auto" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                        {leads.map(lead => (
+                            <div key={lead.id} className="lead-card rounded-lg p-3 mb-2 border border-gray-100" draggable="true" onDragStart={(e) => e.dataTransfer.setData('leadId', lead.id)}>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1 cursor-pointer" onClick={() => onLeadClick(lead)}>
+                                        <div className="font-semibold text-gray-800 text-sm">{lead.name}</div>
+                                        <div className="text-xs text-gray-500 mt-0.5">{lead.email.length > 25 ? lead.email.substring(0, 25) + '...' : lead.email}</div>
+                                        {lead.dealValue > 0 && <div className="text-xs font-bold text-green-600 mt-1">₹{lead.dealValue.toLocaleString()}</div>}
+                                        <div className="flex justify-between items-center mt-2">
+                                            <span className="text-[10px] text-gray-400">{new Date(lead.createdAt).toLocaleDateString()}</span>
+                                            <span className="stage-badge bg-gray-100 text-gray-600 text-[9px]">{lead.source?.substring(0, 8)}</span>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => onEditLead(lead)} className="edit-btn text-blue-500 hover:text-blue-700 ml-2 p-1" title="Edit Lead">
+                                        <i className="fas fa-edit text-sm"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {leads.length === 0 && <div className="text-center text-gray-400 text-sm py-8"><i className="fas fa-inbox text-2xl mb-2 block"></i>No leads</div>}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // Analytics Dashboard - WITH SMALLER GRAPHS
+    const AnalyticsDashboard = ({ leads }) => {
+        const [activeTab, setActiveTab] = React.useState('overview');
+        
+        const totalLeads = leads.length;
+        const totalValue = leads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
+        const wonLeads = leads.filter(l => l.status === 'won').length;
+        const wonValue = leads.filter(l => l.status === 'won').reduce((sum, l) => sum + (l.dealValue || 0), 0);
+        const lostLeads = leads.filter(l => l.status === 'lost').length;
+        const conversionRate = totalLeads ? ((wonLeads / totalLeads) * 100).toFixed(1) : 0;
+        const avgDealSize = wonLeads ? (wonValue / wonLeads).toFixed(0) : 0;
+        const activePipelineValue = leads.filter(l => l.status !== 'won' && l.status !== 'lost').reduce((sum, l) => sum + (l.dealValue || 0), 0);
+        
+        return (
+            <div className="space-y-6">
+                <div className="flex gap-2 border-b border-yellow-200 pb-2">
+                    <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'overview' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-chart-pie mr-2"></i>Overview</button>
+                    <button onClick={() => setActiveTab('pipeline')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'pipeline' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-chart-line mr-2"></i>Pipeline Analysis</button>
+                    <button onClick={() => setActiveTab('revenue')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'revenue' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-rupee-sign mr-2"></i>Revenue Analytics</button>
+                    <button onClick={() => setActiveTab('funnel')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'funnel' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-filter mr-2"></i>Conversion Funnel</button>
+                </div>
+                
+                {activeTab === 'overview' && (
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <StatCard title="Total Leads" value={totalLeads} icon="fas fa-users" color="bg-blue-500" subtext="All time" />
+                            <StatCard title="Pipeline Value" value={`₹${(totalValue/1000).toFixed(0)}k`} icon="fas fa-chart-line" color="bg-green-500" subtext={`₹${totalValue.toLocaleString()}`} />
+                            <StatCard title="Won Deals" value={wonLeads} icon="fas fa-trophy" color="bg-yellow-500" subtext={`₹${(wonValue/1000).toFixed(0)}k won`} />
+                            <StatCard title="Conversion" value={`${conversionRate}%`} icon="fas fa-percent" color="bg-purple-500" subtext={`${lostLeads} lost`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <StatCard title="Avg Deal Size" value={`₹${(parseFloat(avgDealSize)/1000).toFixed(0)}k`} icon="fas fa-chart-simple" color="bg-indigo-500" subtext={`₹${parseFloat(avgDealSize).toLocaleString()}`} />
+                            <StatCard title="Potential Revenue" value={`₹${(activePipelineValue/1000).toFixed(0)}k`} icon="fas fa-hourglass-half" color="bg-orange-500" subtext="Active pipeline" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="chart-container">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">📊 Leads by Pipeline Stage</h3>
+                                <div className="smaller-chart-wrapper"><div className="smaller-chart"><PipelineChart leads={leads} /></div></div>
+                            </div>
+                            <div className="chart-container">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">📈 Lead Creation Trend</h3>
+                                <TrendChart leads={leads} />
+                            </div>
+                        </div>
+                    </>
+                )}
+                
+                {activeTab === 'pipeline' && (
+                    <>
+                        <div className="chart-container">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">📊 Leads Distribution by Stage</h3>
+                            <div className="smaller-chart-wrapper"><div className="smaller-chart"><PipelineChart leads={leads} /></div></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {PIPELINE_STAGES.map(stage => {
+                                const stageLeads = leads.filter(l => l.status === stage.id);
+                                const stageValue = stageLeads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
+                                return <PipelineStageCard key={stage.id} stage={stage} count={stageLeads.length} value={stageValue} totalLeads={totalLeads} />;
+                            })}
+                        </div>
+                        <div className="bg-white rounded-xl p-4">
+                            <h3 className="font-semibold text-gray-800 mb-3">📋 Pipeline Summary</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="text-center p-3 bg-gray-50 rounded-lg"><p className="text-2xl font-bold text-gray-800">{totalLeads}</p><p className="text-xs text-gray-500">Total Leads</p></div>
+                                <div className="text-center p-3 bg-gray-50 rounded-lg"><p className="text-2xl font-bold text-green-600">₹{(activePipelineValue/1000).toFixed(0)}k</p><p className="text-xs text-gray-500">Active Pipeline</p></div>
+                                <div className="text-center p-3 bg-gray-50 rounded-lg"><p className="text-2xl font-bold text-blue-600">{totalLeads - wonLeads - lostLeads}</p><p className="text-xs text-gray-500">Active Leads</p></div>
+                                <div className="text-center p-3 bg-gray-50 rounded-lg"><p className="text-2xl font-bold text-purple-600">{wonLeads + lostLeads}</p><p className="text-xs text-gray-500">Closed Leads</p></div>
+                            </div>
+                        </div>
+                    </>
+                )}
+                
+                {activeTab === 'revenue' && (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="chart-container">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">💰 Revenue Distribution by Stage</h3>
+                                <div className="smaller-chart-wrapper"><div className="smaller-chart"><RevenueChart leads={leads} /></div></div>
+                            </div>
+                            <div className="space-y-4">
+                                <RevenueMetricCard title="Total Pipeline Value" value={`₹${(totalValue/1000).toFixed(0)}k`} icon="fas fa-chart-line" color="#10b981" />
+                                <RevenueMetricCard title="Won Revenue" value={`₹${(wonValue/1000).toFixed(0)}k`} icon="fas fa-trophy" color="#eab308" />
+                                <RevenueMetricCard title="Active Pipeline" value={`₹${(activePipelineValue/1000).toFixed(0)}k`} icon="fas fa-hourglass-half" color="#f59e0b" />
+                                <RevenueMetricCard title="Average Deal Size" value={`₹${(parseFloat(avgDealSize)/1000).toFixed(0)}k`} icon="fas fa-chart-simple" color="#8b5cf6" />
+                            </div>
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-5">
+                            <h3 className="font-semibold text-gray-800 mb-3">🎯 Revenue Insights</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-green-600">₹{(totalValue/100000).toFixed(1)}L</p>
+                                    <p className="text-xs text-gray-500">Total Pipeline</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-green-600">₹{(wonValue/100000).toFixed(1)}L</p>
+                                    <p className="text-xs text-gray-500">Won Revenue</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-orange-600">₹{(activePipelineValue/100000).toFixed(1)}L</p>
+                                    <p className="text-xs text-gray-500">Potential Revenue</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-purple-600">{conversionRate}%</p>
+                                    <p className="text-xs text-gray-500">Win Rate</p>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+                
+                {activeTab === 'funnel' && (
+                    <div className="chart-container">
+                        <VisualConversionFunnel leads={leads} />
+                    </div>
+                )}
+            </div>
+        );
+    };
+    
+    // FIXED: Main Dashboard
+    const Dashboard = () => {
+        const [leads, setLeads] = React.useState([]);
+        const [loading, setLoading] = React.useState(true);
+        const [selectedLead, setSelectedLead] = React.useState(null);
+        const [editingLead, setEditingLead] = React.useState(null);
+        const [showAddModal, setShowAddModal] = React.useState(false);
+        const [activeMainTab, setActiveMainTab] = React.useState('pipeline');
+        const { logout } = useAuth();
+        
+        const fetchLeads = async () => {
+            setLoading(true);
+            const data = await api.getLeads();
+            setLeads(data);
+            setLoading(false);
+        };
+        
+        React.useEffect(() => { fetchLeads(); }, []);
+        
+        const handleStatusChange = async (id, status) => {
+            await api.updateLeadStatus(id, status);
+            fetchLeads();
+        };
+        
+        const handleAddNote = async (id, note) => {
+            await api.addNote(id, note);
+            fetchLeads();
+        };
+        
+        const handleCreateLead = async (leadData) => {
+            const newLead = {
+                name: leadData.name,
+                email: leadData.email,
+                source: leadData.source,
+                notes: leadData.notes,
+                dealValue: leadData.dealValue ? parseFloat(leadData.dealValue) : 0,
+                status: leadData.status || 'new'
+            };
+            await api.createLead(newLead);
+            setShowAddModal(false);
+            fetchLeads();
+        };
+        
+        // FIXED: handleEditLead - uses lead.id correctly
+        const handleEditLead = async (leadData) => {
+            console.log('🟢 handleEditLead called with:', leadData);
+            
+            const updatedLead = {
+                name: leadData.name,
+                email: leadData.email,
+                source: leadData.source,
+                notes: leadData.notes,
+                dealValue: leadData.dealValue ? parseFloat(leadData.dealValue) : 0,
+                status: leadData.status
+            };
+            
+            // Use the correct ID from the lead object
+            const leadId = leadData.id;
+            console.log('🟢 Lead ID to update:', leadId);
+            console.log('🟢 Updated data:', updatedLead);
+            
+            if (!leadId) {
+                console.error('❌ No lead ID found!');
+                alert('Cannot update: Lead ID missing');
+                return;
+            }
+            
+            const result = await api.updateLead(leadId, updatedLead);
+            if (result.success) {
+                console.log('✅ Lead updated successfully!');
+                setEditingLead(null);
+                fetchLeads();
+            } else {
+                console.error('❌ Update failed:', result);
+                alert('Failed to update lead: ' + (result.message || 'Unknown error'));
+            }
+        };
+        
+        const handleDrop = async (leadId, newStatus) => {
+            await api.updateLeadStatus(leadId, newStatus);
+            fetchLeads();
+        };
+        
+        const getLeadsByStage = (stageId) => leads.filter(lead => lead.status === stageId);
+        
+        if (loading) return <div className="flex justify-center py-12"><div className="w-10 h-10 border-2 border-yellow-200 border-t-yellow-500 rounded-full animate-spin"></div></div>;
+        
+        return (
+            <div className="dashboard-bg min-h-screen">
+                <header className="glass-header sticky top-0 z-10">
+                    <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-yellow-500 rounded-xl flex items-center justify-center"><i className="fas fa-chart-line text-white text-lg"></i></div>
+                            <div><h1 className="text-xl font-bold text-gray-800">Mini CRM</h1><p className="text-[10px] text-yellow-600">Advanced Analytics & Pipeline</p></div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setActiveMainTab('pipeline')} className={`px-3 py-1.5 rounded-full text-sm transition ${activeMainTab === 'pipeline' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600'}`}><i className="fas fa-columns mr-1"></i>Pipeline</button>
+                            <button onClick={() => setActiveMainTab('analytics')} className={`px-3 py-1.5 rounded-full text-sm transition ${activeMainTab === 'analytics' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600'}`}><i className="fas fa-chart-pie mr-1"></i>Analytics</button>
+                            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition text-sm shadow-sm"><i className="fas fa-plus"></i><span className="hidden sm:inline">Add Lead</span></button>
+                            <button onClick={() => { logout(); window.location.reload(); }} className="flex items-center gap-1 px-3 py-1.5 bg-white text-red-500 rounded-full hover:bg-red-50 transition text-sm shadow-sm"><i className="fas fa-sign-out-alt"></i><span className="hidden sm:inline">Logout</span></button>
+                        </div>
+                    </div>
+                </header>
+                
+                <main className="max-w-7xl mx-auto px-4 py-6">
+                    {activeMainTab === 'pipeline' ? (
+                        <>
+                            <div className="mb-4">
+                                <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2"><i className="fas fa-columns text-yellow-500"></i>Sales Pipeline</h2>
+                                <p className="text-sm text-gray-500">💡 Drag and drop leads to move them through pipeline stages | ✏️ Click edit icon to modify lead details</p>
+                            </div>
+                            <div className="flex flex-wrap gap-4 overflow-x-auto pb-4">
+                                {PIPELINE_STAGES.map(stage => (
+                                    <KanbanColumn 
+                                        key={stage.id} 
+                                        stage={stage} 
+                                        leads={getLeadsByStage(stage.id)} 
+                                        onLeadClick={setSelectedLead} 
+                                        onDrop={handleDrop}
+                                        onEditLead={setEditingLead}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <AnalyticsDashboard leads={leads} />
+                    )}
+                </main>
+                
+                {showAddModal && <LeadFormModal onClose={() => setShowAddModal(false)} onSave={handleCreateLead} isEditing={false} />}
+                {editingLead && <LeadFormModal lead={editingLead} onClose={() => setEditingLead(null)} onSave={handleEditLead} isEditing={true} />}
+                {selectedLead && <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} onStatusChange={handleStatusChange} onAddNote={handleAddNote} onEdit={setEditingLead} />}
+            </div>
+        );
+    };
+    
+    const App = () => {
+        const { user } = useAuth();
+        return user ? <Dashboard /> : <LoginPage />;
+    };
+    
+    ReactDOM.createRoot(document.getElementById("root")).render(
+        <AuthProvider><App /></AuthProvider>
+    );
+</script>
+</body>
+</html>
