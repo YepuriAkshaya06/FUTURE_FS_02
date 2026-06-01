@@ -109,7 +109,28 @@ const authMiddleware = (req, res, next) => {
         return res.status(403).json({ success: false, message: 'Invalid token' });
     }
 };
-
+// ============ LOGIN ROUTE ============
+app.post('/api/auth/login', async (req, res) => {
+    console.log('Login attempt:', req.body);
+    
+    const { email, password } = req.body;
+    
+    // Simple check for testing
+    if (email === 'admin@crm.com' && password === 'admin123') {
+        const token = jwt.sign(
+            { email: 'admin@crm.com' },
+            'my_secret_key',
+            { expiresIn: '24h' }
+        );
+        return res.json({
+            success: true,
+            token: token,
+            user: { email: 'admin@crm.com' }
+        });
+    }
+    
+    res.status(401).json({ success: false, message: 'Invalid credentials' });
+});
 // ============ LEAD ROUTES ============
 app.get('/api/leads', authMiddleware, async (req, res) => {
     try {
