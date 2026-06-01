@@ -7,13 +7,12 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 
-// ============ MANUAL CORS HEADERS (GUARANTEED FIX) ============
+// ============ CORS HEADERS ============
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
     
-    // Handle preflight requests
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
@@ -22,6 +21,11 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ============ TEST ROUTE (FIRST - TO CHECK IF SERVER WORKS) ============
+app.get('/test', (req, res) => {
+    res.json({ message: '✅ Server is working!', timestamp: new Date().toISOString() });
+});
 
 // ============ SCHEMAS ============
 
@@ -65,10 +69,12 @@ const authMiddleware = (req, res, next) => {
 
 // ============ ROUTES ============
 
+// Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
 });
 
+// Login
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -100,6 +106,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Get all leads
 app.get('/api/leads', authMiddleware, async (req, res) => {
     try {
         const leads = await Lead.find().sort({ createdAt: -1 });
@@ -109,6 +116,7 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
     }
 });
 
+// Create lead
 app.post('/api/leads', authMiddleware, async (req, res) => {
     try {
         const { name, email, source, notes, dealValue, status } = req.body;
@@ -135,6 +143,7 @@ app.post('/api/leads', authMiddleware, async (req, res) => {
     }
 });
 
+// Update lead status
 app.put('/api/leads/:id/status', authMiddleware, async (req, res) => {
     try {
         const { status } = req.body;
@@ -149,6 +158,7 @@ app.put('/api/leads/:id/status', authMiddleware, async (req, res) => {
     }
 });
 
+// Update lead
 app.put('/api/leads/:id', authMiddleware, async (req, res) => {
     try {
         const { name, email, source, status, notes, dealValue } = req.body;
@@ -171,6 +181,7 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
     }
 });
 
+// Add note
 app.post('/api/leads/:id/notes', authMiddleware, async (req, res) => {
     try {
         const { note } = req.body;
@@ -184,6 +195,7 @@ app.post('/api/leads/:id/notes', authMiddleware, async (req, res) => {
     }
 });
 
+// Delete lead
 app.delete('/api/leads/:id', authMiddleware, async (req, res) => {
     try {
         await Lead.findOneAndDelete({ id: req.params.id });
@@ -206,27 +218,36 @@ async function createDefaultAdmin() {
             });
             await defaultAdmin.save();
             console.log('✅ Default admin created: admin@crm.com / admin123');
+        } else {
+            console.log('✅ Admin already exists');
         }
     } catch (error) {
         console.error('Error creating admin:', error);
     }
 }
 
+// Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
     .then(async () => {
-        console.log('✅ MongoDB connected');
+        console.log('✅ MongoDB connected successfully');
         await createDefaultAdmin();
         
         const PORT = process.env.PORT || 5000;
         app.listen(PORT, () => {
             console.log(`🚀 Server running on port ${PORT}`);
-            console.log(`📍 Backend URL: https://mini-crm-backend.onrender.com`);
+            console.log(`📍 Test URL: https://mini-crm-backend.onrender.com/test`);
+            console.log(`📍 Health URL: https://mini-crm-backend.onrender.com/api/health`);
             console.log(`🔐 Login: admin@crm.com / admin123`);
         });
     })
     .catch(err => {
-        console.error('❌ MongoDB error:', err.message);
+        console.error('❌ MongoDB connection error:', err.message);
         process.exit(1);
     });
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({ success: false, message: `Route ${req.url} not found` });
+});
 
 module.exports = app;
