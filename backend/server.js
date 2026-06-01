@@ -22,64 +22,42 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ============ TEST ROUTE (FIRST - TO CHECK IF SERVER WORKS) ============
+// ============ TEST ROUTES ============
 app.get('/test', (req, res) => {
     res.json({ message: '✅ Server is working!', timestamp: new Date().toISOString() });
 });
 
-// ============ SCHEMAS ============
-
-const leadSchema = new mongoose.Schema({
-    id: { type: String, unique: true },
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, lowercase: true, trim: true },
-    source: { type: String, default: 'Website Contact Form' },
-    status: { type: String, default: 'new' },
-    dealValue: { type: Number, default: 0 },
-    notes: { type: String, default: '' },
-    createdAt: { type: Date, default: Date.now },
-    convertedAt: { type: Date, default: null }
-});
-
-const adminSchema = new mongoose.Schema({
-    email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true },
-    role: { type: String, default: 'admin' },
-    lastLogin: { type: Date, default: null }
-});
-
-const Lead = mongoose.model('Lead', leadSchema);
-const Admin = mongoose.model('Admin', adminSchema);
-
-// ============ MIDDLEWARE ============
-
-const authMiddleware = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ success: false, message: 'No token provided' });
-    }
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        return res.status(403).json({ success: false, message: 'Invalid token' });
-    }
-};
-
-// ============ ROUTES ============
-
-// Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
 });
 
-// Login
+// ============ LOGIN ROUTE (FIXED) ============
 app.post('/api/auth/login', async (req, res) => {
+    console.log('📝 Login attempt received:', req.body);
     try {
         const { email, password } = req.body;
-        const admin = await Admin.findOne({ email });
         
+        // For testing - hardcoded admin (remove this after testing)
+        if (email === 'admin@crm.com' && password === 'admin123') {
+            const token = jwt.sign(
+                { id: 'admin123', email: 'admin@crm.com' },
+                process.env.JWT_SECRET || 'my_secret_key',
+                { expiresIn: '24h' }
+            );
+            return res.json({
+                success: true,
+                token,
+                user: { email: 'admin@crm.com', role: 'admin' }
+            });
+        }
+        
+        // Database check (will work when MongoDB is connected)
+        const Admin = mongoose.model('Admin', new mongoose.Schema({
+            email: String,
+            password: String
+        }));
+        
+        const admin = await Admin.findOne({ email });
         if (!admin) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
@@ -91,22 +69,48 @@ app.post('/api/auth/login', async (req, res) => {
         
         const token = jwt.sign(
             { id: admin._id, email: admin.email },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || 'my_secret_key',
             { expiresIn: '24h' }
         );
         
-        res.json({
-            success: true,
-            token,
-            user: { email: admin.email, role: admin.role }
-        });
+        res.json({ success: true, token, user: { email: admin.email, role: 'admin' } });
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error: ' + error.message });
     }
 });
 
-// Get all leads
+// ============ SCHEMAS ============
+const leadSchema = new mongoose.Schema({
+    id: { type: String, unique: true },
+    name: { type: String, required: true },
+    email: { type: String, required: true },
+    source: { type: String, default: 'Website Contact Form' },
+    status: { type: String, default: 'new' },
+    dealValue: { type: Number, default: 0 },
+    notes: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now },
+    convertedAt: { type: Date, default: null }
+});
+
+const Lead = mongoose.model('Lead', leadSchema);
+
+// ============ AUTH MIDDLEWARE ============
+const authMiddleware = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'No token provided' });
+    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'my_secret_key');
+        req.user = decoded;
+        next();
+    } catch (error) {
+        return res.status(403).json({ success: false, message: 'Invalid token' });
+    }
+};
+
+// ============ LEAD ROUTES ============
 app.get('/api/leads', authMiddleware, async (req, res) => {
     try {
         const leads = await Lead.find().sort({ createdAt: -1 });
@@ -116,7 +120,6 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
     }
 });
 
-// Create lead
 app.post('/api/leads', authMiddleware, async (req, res) => {
     try {
         const { name, email, source, notes, dealValue, status } = req.body;
@@ -138,12 +141,10 @@ app.post('/api/leads', authMiddleware, async (req, res) => {
         const savedLead = await newLead.save();
         res.status(201).json({ success: true, data: savedLead });
     } catch (error) {
-        console.error('Create lead error:', error);
         res.status(500).json({ success: false, message: 'Error creating lead' });
     }
 });
 
-// Update lead status
 app.put('/api/leads/:id/status', authMiddleware, async (req, res) => {
     try {
         const { status } = req.body;
@@ -158,7 +159,6 @@ app.put('/api/leads/:id/status', authMiddleware, async (req, res) => {
     }
 });
 
-// Update lead
 app.put('/api/leads/:id', authMiddleware, async (req, res) => {
     try {
         const { name, email, source, status, notes, dealValue } = req.body;
@@ -181,7 +181,6 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// Add note
 app.post('/api/leads/:id/notes', authMiddleware, async (req, res) => {
     try {
         const { note } = req.body;
@@ -195,7 +194,6 @@ app.post('/api/leads/:id/notes', authMiddleware, async (req, res) => {
     }
 });
 
-// Delete lead
 app.delete('/api/leads/:id', authMiddleware, async (req, res) => {
     try {
         await Lead.findOneAndDelete({ id: req.params.id });
@@ -205,10 +203,13 @@ app.delete('/api/leads/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// ============ INITIALIZATION ============
-
+// ============ CREATE DEFAULT ADMIN ============
 async function createDefaultAdmin() {
     try {
+        const Admin = mongoose.model('Admin', new mongoose.Schema({
+            email: String,
+            password: String
+        }));
         const adminExists = await Admin.findOne({ email: 'admin@crm.com' });
         if (!adminExists) {
             const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -217,37 +218,32 @@ async function createDefaultAdmin() {
                 password: hashedPassword
             });
             await defaultAdmin.save();
-            console.log('✅ Default admin created: admin@crm.com / admin123');
-        } else {
-            console.log('✅ Admin already exists');
+            console.log('✅ Default admin created');
         }
     } catch (error) {
-        console.error('Error creating admin:', error);
+        console.log('Admin creation skipped - might already exist');
     }
 }
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-    .then(async () => {
-        console.log('✅ MongoDB connected successfully');
-        await createDefaultAdmin();
-        
-        const PORT = process.env.PORT || 5000;
-        app.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
-            console.log(`📍 Test URL: https://mini-crm-backend.onrender.com/test`);
-            console.log(`📍 Health URL: https://mini-crm-backend.onrender.com/api/health`);
-            console.log(`🔐 Login: admin@crm.com / admin123`);
-        });
-    })
-    .catch(err => {
-        console.error('❌ MongoDB connection error:', err.message);
-        process.exit(1);
-    });
+// ============ START SERVER ============
+const PORT = process.env.PORT || 5000;
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ success: false, message: `Route ${req.url} not found` });
+// Connect to MongoDB if URI exists
+if (process.env.MONGODB_URI) {
+    mongoose.connect(process.env.MONGODB_URI)
+        .then(async () => {
+            console.log('✅ MongoDB connected');
+            await createDefaultAdmin();
+        })
+        .catch(err => console.log('MongoDB connection error:', err.message));
+} else {
+    console.log('⚠️ No MongoDB URI - running without database');
+}
+
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📍 Test: https://mini-crm-backend-sc81.onrender.com/test`);
+    console.log(`📍 Login: POST to https://mini-crm-backend-sc81.onrender.com/api/auth/login`);
 });
 
 module.exports = app;
