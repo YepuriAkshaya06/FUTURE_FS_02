@@ -7,12 +7,14 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 
-// Middleware
+// ============ CORS CONFIGURATION (FIXED FOR RENDER) ============
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -174,7 +176,6 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
         
         const leads = await Lead.find(query).sort({ createdAt: -1 });
         
-        // Get statistics
         const stats = {
             total: await Lead.countDocuments(),
             new: await Lead.countDocuments({ status: 'new' }),
@@ -278,13 +279,12 @@ app.put('/api/leads/:id/status', authMiddleware, async (req, res) => {
     }
 });
 
-// UPDATE full lead (including dealValue) - THIS IS THE EDIT ENDPOINT
+// UPDATE full lead (including dealValue)
 app.put('/api/leads/:id', authMiddleware, async (req, res) => {
     try {
         const { name, email, source, status, notes, dealValue } = req.body;
         
         console.log('Updating lead:', req.params.id);
-        console.log('Update data:', { name, email, source, status, notes, dealValue });
         
         const updateData = {};
         if (name !== undefined) updateData.name = name;
@@ -358,36 +358,6 @@ app.delete('/api/leads/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// GET pipeline analytics
-app.get('/api/analytics/pipeline', authMiddleware, async (req, res) => {
-    try {
-        const pipelineStats = await Lead.aggregate([
-            { $group: { _id: '$status', count: { $sum: 1 }, totalValue: { $sum: '$dealValue' } } }
-        ]);
-        
-        const totalValue = await Lead.aggregate([
-            { $group: { _id: null, total: { $sum: '$dealValue' } } }
-        ]);
-        
-        const wonValue = await Lead.aggregate([
-            { $match: { status: 'won' } },
-            { $group: { _id: null, total: { $sum: '$dealValue' } } }
-        ]);
-        
-        res.json({
-            success: true,
-            data: {
-                pipelineStats,
-                totalPipelineValue: totalValue[0]?.total || 0,
-                wonValue: wonValue[0]?.total || 0
-            }
-        });
-    } catch (error) {
-        console.error('Analytics error:', error);
-        res.status(500).json({ success: false, message: 'Error fetching analytics' });
-    }
-});
-
 // ============ INITIALIZATION ============
 
 async function createDefaultAdmin() {
@@ -419,7 +389,7 @@ mongoose.connect(process.env.MONGODB_URI)
         const PORT = process.env.PORT || 5000;
         app.listen(PORT, () => {
             console.log(`🚀 Server running on port ${PORT}`);
-            console.log(`📍 API URL: http://localhost:${PORT}/api`);
+            console.log(`📍 API URL: https://mini-crm-backend.onrender.com/api`);
             console.log(`🔐 Default login: admin@crm.com / admin123`);
             console.log(`📊 Pipeline stages: new → contacted → qualified → proposal → negotiation → won → lost`);
         });
