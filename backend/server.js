@@ -7,16 +7,18 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 
-// ============ CORS FIX FOR RENDER ============
-app.use(cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
-}));
-
-// Handle preflight requests
-app.options('*', cors());
+// ============ MANUAL CORS HEADERS (GUARANTEED FIX) ============
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -218,7 +220,8 @@ mongoose.connect(process.env.MONGODB_URI)
         const PORT = process.env.PORT || 5000;
         app.listen(PORT, () => {
             console.log(`🚀 Server running on port ${PORT}`);
-            console.log(`📍 https://mini-crm-backend.onrender.com`);
+            console.log(`📍 Backend URL: https://mini-crm-backend.onrender.com`);
+            console.log(`🔐 Login: admin@crm.com / admin123`);
         });
     })
     .catch(err => {
