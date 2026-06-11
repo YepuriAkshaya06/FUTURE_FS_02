@@ -10,15 +10,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background: #f5f5f5; }
-        .dashboard-bg { background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%); min-height: 100vh; }
-        .stat-card { background: white; border-radius: 20px; transition: all 0.3s; border: 1px solid rgba(234,179,8,0.2); }
+        .dashboard-bg { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); min-height: 100vh; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s; border: 1px solid rgba(34,197,94,0.2); }
         .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
         .kanban-column { background: #f8fafc; border-radius: 12px; min-height: 400px; }
-        .lead-card { cursor: pointer; transition: all 0.2s; background: white; border-left: 3px solid #eab308; }
+        .lead-card { cursor: pointer; transition: all 0.2s; background: white; border-left: 3px solid #22c55e; }
         .lead-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .glass-header { background: rgba(255,255,255,0.96); backdrop-filter: blur(8px); border-bottom: 2px solid #eab308; }
+        .glass-header { background: rgba(255,255,255,0.96); backdrop-filter: blur(8px); border-bottom: 2px solid #22c55e; }
         .stage-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-        .drag-over { background: #fef3c7; border: 2px dashed #eab308; }
+        .drag-over { background: #dcfce7; border: 2px dashed #22c55e; }
         .chart-container { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .small-chart { height: 260px !important; width: 100% !important; }
         .smaller-chart-wrapper { display: flex; justify-content: center; align-items: center; }
@@ -185,7 +185,7 @@
             setLoading(false);
         }, []);
         
-        if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div></div>;
+        if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>;
         
         return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
     };
@@ -207,21 +207,21 @@
         };
         
         return (
-            <div className="min-h-screen flex items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)'}}>
+            <div className="min-h-screen flex items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)'}}>
                 <div className="max-w-md w-full">
                     <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl shadow-lg mb-4">
+                        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl shadow-lg mb-4">
                             <i className="fas fa-chart-line text-4xl text-white"></i>
                         </div>
                         <h2 className="text-2xl font-bold text-gray-800">Mini CRM</h2>
-                        <p className="text-yellow-700 mt-1">Advanced Analytics Dashboard</p>
+                        <p className="text-green-700 mt-1">Advanced Analytics Dashboard</p>
                     </div>
                     <div className="bg-white rounded-2xl shadow-xl p-8">
                         <form onSubmit={handleSubmit} className="space-y-5">
-                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-yellow-500" required /></div>
-                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-yellow-500" required /></div>
+                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500" required /></div>
+                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500" required /></div>
                             {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
-                            <button type="submit" disabled={loading} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2">
+                            <button type="submit" disabled={loading} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2">
                                 {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-sign-in-alt"></i>}
                                 {loading ? "Logging in..." : "Access Dashboard"}
                             </button>
@@ -345,12 +345,12 @@
                     datasets: [{
                         label: 'New Leads',
                         data: dailyCounts,
-                        borderColor: '#eab308',
-                        backgroundColor: 'rgba(234,179,8,0.05)',
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34,197,94,0.05)',
                         fill: true,
                         tension: 0.3,
                         pointRadius: 4,
-                        pointBackgroundColor: '#eab308',
+                        pointBackgroundColor: '#22c55e',
                         pointBorderColor: 'white',
                         pointBorderWidth: 2,
                         borderWidth: 2.5
@@ -533,7 +533,7 @@
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Deal Value (₹)</label><input type="number" value={form.dealValue} onChange={(e) => setForm({...form, dealValue: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl" placeholder="0" /></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Pipeline Stage</label><select value={form.status} onChange={(e) => setForm({...form, status: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl">{PIPELINE_STAGES.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></div>
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Notes</label><textarea rows="3" value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} className="w-full px-4 py-2 border border-gray-200 rounded-xl"></textarea></div>
-                        <button type="submit" disabled={loading} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-xl transition">
+                        <button type="submit" disabled={loading} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-xl transition">
                             {loading ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
                             {isEditing ? 'Update Lead' : 'Create Lead'}
                         </button>
@@ -560,7 +560,7 @@
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-semibold flex items-center gap-2"><i className="fas fa-user-circle text-yellow-500"></i>Lead Details</h3>
+                        <h3 className="text-xl font-semibold flex items-center gap-2"><i className="fas fa-user-circle text-green-500"></i>Lead Details</h3>
                         <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><i className="fas fa-times text-xl"></i></button>
                     </div>
                     <div className="space-y-3">
@@ -572,11 +572,11 @@
                         <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Update Stage</p><select value={lead.status} onChange={(e) => onStatusChange(lead.id, e.target.value)} className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg">{PIPELINE_STAGES.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></div>
                         <div className="bg-gray-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Created</p><p className="font-medium">{new Date(lead.createdAt).toLocaleString()}</p></div>
                         {lead.convertedAt && <div className="bg-green-50 p-3 rounded-xl"><p className="text-xs text-gray-400">Won Date</p><p className="font-medium">{new Date(lead.convertedAt).toLocaleString()}</p></div>}
-                        <div className="bg-yellow-50 p-3 rounded-xl">
-                            <p className="text-xs text-gray-400 flex items-center gap-1 mb-2"><i className="fas fa-comments text-yellow-500"></i>Notes</p>
+                        <div className="bg-green-50 p-3 rounded-xl">
+                            <p className="text-xs text-gray-400 flex items-center gap-1 mb-2"><i className="fas fa-comments text-green-500"></i>Notes</p>
                             <div className="text-sm whitespace-pre-wrap max-h-32 overflow-y-auto mb-3">{lead.notes || "No notes yet."}</div>
                             <textarea rows="2" value={newNote} onChange={(e) => setNewNote(e.target.value)} className="w-full p-2 border border-gray-200 rounded-lg text-sm" placeholder="Add a follow-up note..."></textarea>
-                            <button onClick={handleAddNote} className="mt-2 text-sm bg-yellow-500 text-white px-3 py-1 rounded-lg hover:bg-yellow-600">Add Note</button>
+                            <button onClick={handleAddNote} className="mt-2 text-sm bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600">Add Note</button>
                         </div>
                         <div className="flex gap-3 pt-2">
                             <button onClick={() => { onEdit(lead); onClose(); }} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg transition"><i className="fas fa-edit mr-2"></i>Edit Lead</button>
@@ -605,7 +605,7 @@
         
         return (
             <div className={`flex-1 min-w-[280px] ${isDragOver ? 'drag-over' : ''}`}>
-                <div className="bg-white rounded-xl shadow-sm border border-yellow-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden">
                     <div className={`p-3 ${stage.bg} border-b`}>
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
@@ -659,11 +659,11 @@
         
         return (
             <div className="space-y-6">
-                <div className="flex gap-2 border-b border-yellow-200 pb-2">
-                    <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'overview' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-chart-pie mr-2"></i>Overview</button>
-                    <button onClick={() => setActiveTab('pipeline')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'pipeline' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-chart-line mr-2"></i>Pipeline Analysis</button>
-                    <button onClick={() => setActiveTab('revenue')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'revenue' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-rupee-sign mr-2"></i>Revenue Analytics</button>
-                    <button onClick={() => setActiveTab('funnel')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'funnel' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 hover:bg-yellow-100'}`}><i className="fas fa-filter mr-2"></i>Conversion Funnel</button>
+                <div className="flex gap-2 border-b border-green-200 pb-2">
+                    <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'overview' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-green-100'}`}><i className="fas fa-chart-pie mr-2"></i>Overview</button>
+                    <button onClick={() => setActiveTab('pipeline')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'pipeline' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-green-100'}`}><i className="fas fa-chart-line mr-2"></i>Pipeline Analysis</button>
+                    <button onClick={() => setActiveTab('revenue')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'revenue' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-green-100'}`}><i className="fas fa-rupee-sign mr-2"></i>Revenue Analytics</button>
+                    <button onClick={() => setActiveTab('funnel')} className={`px-4 py-2 rounded-lg transition ${activeTab === 'funnel' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-green-100'}`}><i className="fas fa-filter mr-2"></i>Conversion Funnel</button>
                 </div>
                 
                 {activeTab === 'overview' && (
@@ -671,7 +671,7 @@
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <StatCard title="Total Leads" value={totalLeads} icon="fas fa-users" color="bg-blue-500" subtext="All time" />
                             <StatCard title="Pipeline Value" value={`₹${(totalValue/1000).toFixed(0)}k`} icon="fas fa-chart-line" color="bg-green-500" subtext={`₹${totalValue.toLocaleString()}`} />
-                            <StatCard title="Won Deals" value={wonLeads} icon="fas fa-trophy" color="bg-yellow-500" subtext={`₹${(wonValue/1000).toFixed(0)}k won`} />
+                            <StatCard title="Won Deals" value={wonLeads} icon="fas fa-trophy" color="bg-green-500" subtext={`₹${(wonValue/1000).toFixed(0)}k won`} />
                             <StatCard title="Conversion" value={`${conversionRate}%`} icon="fas fa-percent" color="bg-purple-500" subtext={`${lostLeads} lost`} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -725,7 +725,7 @@
                             </div>
                             <div className="space-y-4">
                                 <RevenueMetricCard title="Total Pipeline Value" value={`₹${(totalValue/1000).toFixed(0)}k`} icon="fas fa-chart-line" color="#10b981" />
-                                <RevenueMetricCard title="Won Revenue" value={`₹${(wonValue/1000).toFixed(0)}k`} icon="fas fa-trophy" color="#eab308" />
+                                <RevenueMetricCard title="Won Revenue" value={`₹${(wonValue/1000).toFixed(0)}k`} icon="fas fa-trophy" color="#22c55e" />
                                 <RevenueMetricCard title="Active Pipeline" value={`₹${(activePipelineValue/1000).toFixed(0)}k`} icon="fas fa-hourglass-half" color="#f59e0b" />
                                 <RevenueMetricCard title="Average Deal Size" value={`₹${(parseFloat(avgDealSize)/1000).toFixed(0)}k`} icon="fas fa-chart-simple" color="#8b5cf6" />
                             </div>
@@ -849,20 +849,20 @@
         
         const getLeadsByStage = (stageId) => leads.filter(lead => lead.status === stageId);
         
-        if (loading) return <div className="flex justify-center py-12"><div className="w-10 h-10 border-2 border-yellow-200 border-t-yellow-500 rounded-full animate-spin"></div></div>;
+        if (loading) return <div className="flex justify-center py-12"><div className="w-10 h-10 border-2 border-green-200 border-t-green-500 rounded-full animate-spin"></div></div>;
         
         return (
             <div className="dashboard-bg min-h-screen">
                 <header className="glass-header sticky top-0 z-10">
                     <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-yellow-500 rounded-xl flex items-center justify-center"><i className="fas fa-chart-line text-white text-lg"></i></div>
-                            <div><h1 className="text-xl font-bold text-gray-800">Mini CRM</h1><p className="text-[10px] text-yellow-600">Advanced Analytics & Pipeline</p></div>
+                            <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center"><i className="fas fa-chart-line text-white text-lg"></i></div>
+                            <div><h1 className="text-xl font-bold text-gray-800">Mini CRM</h1><p className="text-[10px] text-green-600">Advanced Analytics & Pipeline</p></div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <button onClick={() => setActiveMainTab('pipeline')} className={`px-3 py-1.5 rounded-full text-sm transition ${activeMainTab === 'pipeline' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600'}`}><i className="fas fa-columns mr-1"></i>Pipeline</button>
-                            <button onClick={() => setActiveMainTab('analytics')} className={`px-3 py-1.5 rounded-full text-sm transition ${activeMainTab === 'analytics' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600'}`}><i className="fas fa-chart-pie mr-1"></i>Analytics</button>
-                            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition text-sm shadow-sm"><i className="fas fa-plus"></i><span className="hidden sm:inline">Add Lead</span></button>
+                            <button onClick={() => setActiveMainTab('pipeline')} className={`px-3 py-1.5 rounded-full text-sm transition ${activeMainTab === 'pipeline' ? 'bg-green-500 text-white' : 'bg-white text-gray-600'}`}><i className="fas fa-columns mr-1"></i>Pipeline</button>
+                            <button onClick={() => setActiveMainTab('analytics')} className={`px-3 py-1.5 rounded-full text-sm transition ${activeMainTab === 'analytics' ? 'bg-green-500 text-white' : 'bg-white text-gray-600'}`}><i className="fas fa-chart-pie mr-1"></i>Analytics</button>
+                            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded-full hover:bg-green-600 transition text-sm shadow-sm"><i className="fas fa-plus"></i><span className="hidden sm:inline">Add Lead</span></button>
                             <button onClick={() => { logout(); window.location.reload(); }} className="flex items-center gap-1 px-3 py-1.5 bg-white text-red-500 rounded-full hover:bg-red-50 transition text-sm shadow-sm"><i className="fas fa-sign-out-alt"></i><span className="hidden sm:inline">Logout</span></button>
                         </div>
                     </div>
@@ -872,7 +872,7 @@
                     {activeMainTab === 'pipeline' ? (
                         <>
                             <div className="mb-4">
-                                <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2"><i className="fas fa-columns text-yellow-500"></i>Sales Pipeline</h2>
+                                <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2"><i className="fas fa-columns text-green-500"></i>Sales Pipeline</h2>
                                 <p className="text-sm text-gray-500">💡 Drag and drop leads to move them through pipeline stages | ✏️ Click edit icon to modify lead details</p>
                             </div>
                             <div className="flex flex-wrap gap-4 overflow-x-auto pb-4">
