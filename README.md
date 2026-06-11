@@ -53,7 +53,7 @@ Real-time Statistics - Automatic updates of lead metrics
 -----------------------------------------------------------------------------------------------------------------------------
 🛠️ Tech Stack
 
-Frontend
+Frontend:
 
 React.js - UI library for building the dashboard
 
@@ -63,7 +63,7 @@ Chart.js - Data visualization for analytics
 
 Vercel - Hosting and deployment
 
-Backend
+Backend:
 
 Node.js - JavaScript runtime
 
@@ -71,11 +71,11 @@ Express.js - Web framework for APIs
 
 Render - Cloud hosting and deployment
 
-Database
+Database:
 
 JSON File Storage - Lightweight file-based storage (leads.json, users.json)
 
-Development Tools
+Development Tools:
 Vite - Fast build tool and dev server
 
 Nodemon - Auto-restart during development
